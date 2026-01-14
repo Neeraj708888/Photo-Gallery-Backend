@@ -4,7 +4,8 @@ import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { dbConfig, PORT } from './configuration/db.config.js';
 import adminRoute from './controllers/Auth/admin.controller.js';
-import collectionRoute from './controllers/Collection/collection.controller.js';
+import collectionRoute from "./routes/Collection/collection.route.js";
+import galleryRoute from "./routes/Gallery/gallery.route.js";
 
 dotenv.config();
 
@@ -35,7 +36,7 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
-app.options("*", cors());
+// app.options("*", cors());   // Very Important 
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
@@ -51,6 +52,7 @@ app.use("/uploads", express.static("uploads"));
 // Routes
 app.use('/api/auth', adminRoute);
 app.use("/api/collections", collectionRoute);
+app.use("/api/gallery", galleryRoute);
 
 const port = PORT || 5000;
 app.listen(port, '0.0.0.0', () => console.log(`🚀 Server running on port ${port}`));
