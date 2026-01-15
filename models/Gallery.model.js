@@ -19,7 +19,10 @@ const GallerySchema = new mongoose.Schema({
         default: true,
     },
 },
-    { timestamps: true },
+    {
+        timestamps: true,
+        versionKey: false,
+    },
 );
 
 // Fast Filtering

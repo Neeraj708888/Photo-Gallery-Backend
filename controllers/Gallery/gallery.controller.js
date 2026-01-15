@@ -1,4 +1,4 @@
-import mongoose from "mongoose";
+import mongoose, { version } from "mongoose";
 import GalleryModel from "../../models/Gallery.model.js";
 import cloudinary from "../../middlewares/cloudinary.js";
 
@@ -74,7 +74,6 @@ export const createGallery = async (req, res) => {
         });
     }
 };
-
 
 // Update Gallery
 // export const updateGallery = async (req, res) => {
@@ -199,7 +198,6 @@ export const updateGallery = async (req, res) => {
         });
     }
 };
-
 
 // Delete Gallery
 export const deleteGallery = async (req, res) => {
@@ -340,8 +338,87 @@ export const getAllGallery = async (req, res) => {
     }
 };
 
+// Get Single Gellery
+export const getSingleGallery = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const gallery = await GalleryModel.findById(id).populate("collection", "collectionName status thumbnail -_id");
+
+        if (!gallery) return res.status(404).json({
+            success: false,
+            message: "Gallery not found",
+        });
+
+        res.status(200).json({
+            success: true,
+            data: gallery,
+        });
 
 
+    } catch (error) {
+        console.log("Get Single Gallery Error:", error);
+        res.status(500).json({
+            message: "Something went wrong" || error.message
+        });
+    }
+};
+
+// Get Single Gallery by Using lookup + projects
+// export const getSingleGallery = async (req, res) => {
+//     try {
+//         const { id } = req.params;
+
+//         if (!mongoose.isValidObjectId(id)) return res.status(400).json({
+//             success: false,
+//             message: "Invalid Gallery Id",
+//         });
+
+//         const pipeline = [
+//             {
+//                 $match: {
+//                     _id: mongoose.Types.ObjectId.createFromHexString(id),
+//                 },
+//             },
+//             {
+//                 $lookup: {
+//                     from: "collections",           // Kis collection DB se
+//                     localField: "collection",      // apni kis local field
+//                     foreignField: "_id",
+//                     as: "collection"
+//                 },
+//             },
+//             { $unwind: "$collection" },
+//             {
+//                 $project: {
+//                     __v: 0,
+//                     "collection.__v": 0,
+//                     "collection.createdAt": 0,
+//                     "collection.updatedAt": 0,
+//                 }
+//             }
+//         ];
+
+//         const gallery = await GalleryModel.aggregate(pipeline);
+
+//         if (!gallery.length) return res.status(404).json({
+//             success: false,
+//             message: "Gallery not found",
+//         });
+
+//         res.status(200).json({
+//             success: true,
+//             total: gallery.length,
+//             data: gallery[0],
+//         });
+
+//     } catch (error) {
+//         console.log("Get Single Gallery Error:", error);
+//         res.status(500).json({
+//             message: "Something went wrong" || error.message
+//         });
+//     }
+// }
 // Search and Filter
 // export const filterGallery = async (req, res) => {
 //     try {
