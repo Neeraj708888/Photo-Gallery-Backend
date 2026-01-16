@@ -260,7 +260,7 @@ export const toggleGalleryStatus = async (req, res) => {
     }
 }
 
-// Get Gallery
+// Get Gallery + Search
 export const getAllGallery = async (req, res) => {
     try {
         const { collection, status, search } = req.query;

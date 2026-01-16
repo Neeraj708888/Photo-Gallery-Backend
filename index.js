@@ -3,9 +3,10 @@ import cors from 'cors';
 import mongoose from 'mongoose';
 import dotenv from 'dotenv';
 import { dbConfig, PORT } from './configuration/db.config.js';
-import adminRoute from './controllers/Auth/admin.controller.js';
+import adminRoute from './routes/Auth/admin.route.js';
 import collectionRoute from "./routes/Collection/collection.route.js";
 import galleryRoute from "./routes/Gallery/gallery.route.js";
+import photosRoute from "./routes/Photos/photos.route.js";
 
 dotenv.config();
 
@@ -53,6 +54,7 @@ app.use("/uploads", express.static("uploads"));
 app.use('/api/auth', adminRoute);
 app.use("/api/collections", collectionRoute);
 app.use("/api/gallery", galleryRoute);
+app.use("/api/photos", photosRoute);
 
 const port = PORT || 5000;
 app.listen(port, '0.0.0.0', () => console.log(`🚀 Server running on port ${port}`));

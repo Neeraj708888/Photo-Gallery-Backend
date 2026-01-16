@@ -1,18 +1,14 @@
-import express from "express";
-import { verifyToken } from "../../middlewares/auth.middlewares.js";
-
-import { 
-  adminRegisterService, 
-  adminLoginService,  
-  logoutAdmin 
+import {
+  adminRegisterService,
+  adminLoginService,
+  logoutAdmin
 } from "../../services/admin.service.js";
 
-const router = express.Router();
-
-
 // 🟢 Register Admin
-router.post("/register", async (req, res) => {
+export const registerAdmin = async (req, res) => {
   try {
+    console.log("HEADERS:", req.headers["content-type"]);
+    console.log("BODY =>", req.body);
     const { email, password } = req.body;
 
     const result = await adminRegisterService({ email, password });
@@ -26,11 +22,11 @@ router.post("/register", async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
-});
+};
 
 
 // 🟡 Login Admin
-router.post("/login", async (req, res) => {
+export const adminLogin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -45,11 +41,11 @@ router.post("/login", async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
-});
+};
 
 
 // 🔴 Logout Admin
-router.post("/logout", verifyToken, async (req, res) => {
+export const adminLogout = async (req, res) => {
   try {
     // ⭐ FIX: Token should come from verifyToken middleware, not headers
     const token = req.token; // 👍 Cleaner & recommended
@@ -65,7 +61,5 @@ router.post("/logout", verifyToken, async (req, res) => {
   } catch (error) {
     return res.status(500).json({ success: false, message: error.message });
   }
-});
+};
 
-
-export default router;
