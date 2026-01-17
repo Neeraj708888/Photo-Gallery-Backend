@@ -252,7 +252,7 @@ export const deletePhotos = async (req, res) => {
 
         // Find Photo
         const photo = await PhotosModel.findById(photoId);
-        if (!photo) return res.status(400).json({
+        if (!photo) return res.status(404).json({
             success: false,
             message: "Photo not found"
         });

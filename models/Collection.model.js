@@ -11,7 +11,7 @@ const CollectionSchema = new mongoose.Schema({
         default: true,
     },
 },
-    { timestamps: true },
+    { timestamps: true, versionKey: false },
 );
 
 CollectionSchema.index({ collectionName: 1 });

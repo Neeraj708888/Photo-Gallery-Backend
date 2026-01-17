@@ -62,17 +62,30 @@ export const updateCollection = async (req, res) => {
 // Delete Collection
 export const deleteCollection = async (req, res) => {
   try {
-    const collection = await CollectionModel.findById(req.params.id);
+    const { id } = req.params;
+    const collection = await CollectionModel.findById(id);
 
     if (!collection) return res.status(404).json({ message: "Collection not found" });
 
+    // Delete image from cloudinary - if exists
+    if (collection.thumbnail?.public_id) {
+      const cloudResponse = await cloudinary.uploader.destroy(collection.thumbnail?.public_id);
+
+      if (cloudResponse.result !== ok) {
+        console.warn("Cloudinary deleted failed",
+          cloudResponse
+        );
+      }
+    }
+
     // Delete Image from Cloudinary first
-    await cloudinary.uploader.destroy(collection.thumbnail.public_id);
+    // await cloudinary.uploader.destroy(collection.thumbnail.public_id);
 
     // Delete DB record
-    await collection.deleteOne();
+    // await collection.deleteOne();
+    await CollectionModel.findByIdAndDelete(id);
 
-    res.json({ message: "Collection deleted successfully" });
+    res.json({ message: "Collection deleted successfully", id });
 
   } catch (error) {
     res.status(500).json({ message: "Something went wrong" || error.message });
