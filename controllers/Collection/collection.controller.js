@@ -124,33 +124,69 @@ export const getCollectionById = async (req, res) => {
 };
 
 // Toggle Status
+// export const toggleCollectionStatus = async (req, res) => {
+
+//   try {
+//     console.log("STATUS TOGGLE API HIT", req.params.id);
+
+//     const { id } = req.params;
+
+//     const collection = await CollectionModel.findById(id);
+
+//     if (!collection) return res.status(404).json({ message: "Collection not found" });
+
+//     // Toggle Status
+//     console.log("OLD STATUS:", collection.status);
+
+//     collection.status = !collection.status;
+//     await collection.save();
+//     console.log("OLD STATUS:", collection.status);
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Status updated successfully",
+//       status: collection.status,
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ message: "Something went wrong" || error.message });
+//   }
+// };
+
 export const toggleCollectionStatus = async (req, res) => {
-
   try {
-    console.log("STATUS TOGGLE API HIT", req.params.id);
-
     const { id } = req.params;
+    const { status } = req.body;
 
-    const collection = await CollectionModel.findById(id);
+    if (typeof status !== "boolean") {
+      return res.status(400).json({ message: "Status must be boolean" });
+    }
 
-    if (!collection) return res.status(404).json({ message: "Collection not found" });
+    const updated = await CollectionModel.findByIdAndUpdate(
+      id,
+      { status },
+      { new: true }
+    );
 
-    // Toggle Status
-    console.log("OLD STATUS:", collection.status);
-    collection.status = !collection.status;
-    await collection.save();
-    console.log("OLD STATUS:", collection.status);
-
-    res.status(200).json({
-      success: true,
-      message: "Status updated successfully",
-      status: collection.status,
+    if (!updated) return res.status(404).json({
+      message: "Collection not found"
     });
 
+    res.status(200).json({
+      message: "Collection status has been changed",
+      updated,
+    });
+
+
   } catch (error) {
-    res.status(500).json({ message: "Something went wrong" || error.message });
+    console.log("Collection Status Error: ", error);
+    res.status(500).json({
+      success: true,
+      message: "Internal Error in collection status change",
+      id: id,
+    });
   }
-};
+}
 
 // Search Collection
 export const searchCollection = async (req, res) => {
