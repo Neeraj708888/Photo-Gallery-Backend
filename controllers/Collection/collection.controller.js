@@ -71,7 +71,7 @@ export const deleteCollection = async (req, res) => {
     if (collection.thumbnail?.public_id) {
       const cloudResponse = await cloudinary.uploader.destroy(collection.thumbnail?.public_id);
 
-      if (cloudResponse.result !== ok) {
+      if (cloudResponse.result !== "ok") {
         console.warn("Cloudinary deleted failed",
           cloudResponse
         );
