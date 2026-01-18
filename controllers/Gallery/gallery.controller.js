@@ -232,7 +232,7 @@ export const deleteGallery = async (req, res) => {
         res.status(200).json({
             success: true,
             message: "Gallery deleted",
-            id: id
+            id
         });
 
     } catch (error) {
