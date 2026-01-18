@@ -254,22 +254,43 @@ export const deleteGallery = async (req, res) => {
 export const toggleGalleryStatus = async (req, res) => {
     try {
         const { id } = req.params;
+        const { status } = req.body;
 
-        const gallery = await GalleryModel.findById(id);
-        if (!gallery) res.status(404).json({ message: "Gallery not found" });
+        if (typeof status !== "boolean") {
+            return res.status(400).json({
+                success: false,
+                message: "Status must be boolean",
+            });
+        }
 
-        gallery.status = !gallery.status;
-        await gallery.save();
+        const updated = await GalleryModel.findByIdAndUpdate(
+            id,
+            { status },
+            { new: true }
+        );
+
+        if (!updated) {
+            return res.status(404).json({
+                success: false,
+                message: "Gallery not found",
+            });
+        }
 
         res.status(200).json({
             success: true,
-            status: gallery.status,
+            message: "Gallery status has been changed",
+            updated,
         });
 
     } catch (error) {
-        res.status(500).json({ message: "Something went wrong" || error.message });
+        console.error("Toggle Gallery Status Error:", error);
+        res.status(500).json({
+            success: false,
+            message: error.message || "Internal Error in gallery status change",
+            id: id,
+        });
     }
-}
+};
 
 // Get Gallery + Search
 export const getAllGallery = async (req, res) => {
