@@ -105,6 +105,10 @@ export const createGallery = async (req, res) => {
 // Update Gallery Using Aggregate Pipeline
 export const updateGallery = async (req, res) => {
     try {
+        alo:
+
+        console.log("BODY:", req.body);
+        console.log("FILE:", req.file);
         const { id } = req.params;
         const { galleryName, collection } = req.body || {};
 
@@ -227,7 +231,8 @@ export const deleteGallery = async (req, res) => {
 
         res.status(200).json({
             success: true,
-            message: "Gallery deleted"
+            message: "Gallery deleted",
+            id: id
         });
 
     } catch (error) {
