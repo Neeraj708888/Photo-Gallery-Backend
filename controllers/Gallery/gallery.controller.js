@@ -224,7 +224,13 @@ export const deleteGallery = async (req, res) => {
         });
 
         // Delete Thumbnail from Cloudinary
-        if (gallery.thumbnail?.public_id) await cloudinary.uploader.destroy(gallery.thumbnail.public_id);
+        if (gallery.thumbnail?.public_id) {
+            const cloudResponse = await cloudinary.uploader.destroy(gallery.thumbnail.public_id);
+
+            if (cloudResponse.result !== "ok") {
+                console.warn("Cloudinary deleted failed", cloudResponse);
+            }
+        }
 
         // Delete Gallery
         await GalleryModel.findByIdAndDelete(id);
