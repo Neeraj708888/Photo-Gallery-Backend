@@ -106,7 +106,7 @@ export const createGallery = async (req, res) => {
 export const updateGallery = async (req, res) => {
     try {
         const { id } = req.params;
-        const { galleryName, collection, status } = req.body || {};
+        const { galleryName, collection } = req.body || {};
 
         // 🔴 Validate gallery id
         if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -128,7 +128,7 @@ export const updateGallery = async (req, res) => {
         const updateData = {};
         if (galleryName) updateData.galleryName = galleryName;
         if (collection) updateData.collection = collection;
-        if (status !== undefined) updateData.status = status === "true" || status === true;
+        // if (status !== undefined) updateData.status = status === "true" || status === true;
 
         if (req.file) {
             updateData.thumbnail = {
