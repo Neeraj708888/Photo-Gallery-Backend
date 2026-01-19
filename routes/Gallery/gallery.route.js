@@ -13,5 +13,4 @@ router.patch("/status/:id", verifyToken, toggleGalleryStatus);
 router.delete("/:id", verifyToken, deleteGallery);
 router.get("/", getAllGallery);
 router.get("/:id", getSingleGallery);
-
 export default router;
