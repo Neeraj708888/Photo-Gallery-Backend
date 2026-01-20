@@ -12,9 +12,14 @@ export const createGallery = async (req, res) => {
         if (!galleryName || !collection) {
             return res.status(400).json({
                 success: false,
-                message: "Required fields missing",
+                message: "Gallery name and Collection are required",
             });
         }
+
+        if (!req.files || req.files.length === 0) return res.status(400).json({
+            success: false,
+            message: "At least on image is required"
+        });
 
         // ✅ ObjectId validation
         if (!mongoose.Types.ObjectId.isValid(collection)) {
@@ -24,46 +29,39 @@ export const createGallery = async (req, res) => {
             });
         }
 
+        // Multiple Images Support
+        const images = [];
+        for (const file of req.files) {
+            const result = await cloudinary.uploader.upload(file.path, {
+                folder: "collections",
+            });
+            images.push({
+                url: result.secure_url,
+                public_id: result.public_id,
+            })
+        }
+        // const images = req.files?.map(file => ({
+        //     url: file.path,
+        //     public_id: file.filename,
+        // }));
+
         // ✅ Create gallery
         const gallery = await GalleryModel.create({
             galleryName,
+            images,
             collection,
-            thumbnail: req.file
-                ? { url: req.file.path, public_id: req.file.filename }
-                : undefined,
         });
 
-        // ✅ Lookup + Project
-        const result = await GalleryModel.aggregate([
-            {
-                $match: { _id: gallery._id },
-            },
-            {
-                $lookup: {
-                    from: "collections",         // ----> DB Name
-                    localField: "collection",    // ----> Gallery Schema ki local Field
-                    foreignField: "_id",        //  ----> Collection DB m Gallery ki _id
-                    as: "collection",           //  ----> Show karo same collection field
-                },
-            },
-            { $unwind: "$collection" }, // ✅ FIXED
-            {
-                $project: {
-                    _id: 1,
-                    galleryName: 1,
-                    status: 1,
-                    thumbnail: 1,
-                    createdAt: 1,
-                    "collection._id": 1,                 // ✅ FIXED
-                    "collection.collectionName": 1,      // ✅ FIXED
-                },
-            },
-        ]);
+        // ✅ Populate 
+        const populatedGallery = await GalleryModel.findById(gallery._id)
+            .populate("collection", "_id collectionName")
+            .select("_id gelleryName images status createdAt")
+            .lean();
 
         res.status(201).json({
             success: true,
             message: "Gallery created successfully",
-            data: result[0],
+            data: populatedGallery,
         });
 
     } catch (error) {

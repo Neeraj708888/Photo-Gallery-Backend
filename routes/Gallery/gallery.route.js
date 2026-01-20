@@ -7,8 +7,8 @@ const router = express.Router();
 
 
 // router.get("/search", filterGallery);
-router.post("/create", verifyToken, upload.single("thumbnail"), createGallery);
-router.post("/update/:id", verifyToken, upload.single("thumbnail"), updateGallery);
+router.post("/create", verifyToken, upload.array("images", 10), createGallery);
+router.post("/update/:id", verifyToken, upload.array("images"), updateGallery);
 router.patch("/status/:id", verifyToken, toggleGalleryStatus);
 router.delete("/:id", verifyToken, deleteGallery);
 router.get("/", getAllGallery);

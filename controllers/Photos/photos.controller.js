@@ -425,6 +425,51 @@ export const getAllPhotos = async (req, res) => {
     }
 };
 
+
+// Gallery Images
+export const getImagesByGallery = async (req, res) => {
+    try {
+        const { galleryId } = req.params;
+
+        // 🔒 Validate ObjectId
+        if (!mongoose.Types.ObjectId.isValid(galleryId)) {
+            return res.status(400).json({
+                success: false,
+                message: "Invalid gallery id",
+            });
+        }
+
+        // 🟢 Fetch all photos of this gallery
+        const photos = await PhotosModel.find({
+            gallery: galleryId,
+            status: true,
+        }).select("images title createdAt");
+
+        // 🟡 Flatten images
+        const images = photos.flatMap((photo) =>
+            photo.images.map((img) => ({
+                ...img.toObject(),
+                photoTitle: photo.title,
+                createdAt: photo.createdAt,
+            }))
+        );
+
+        res.status(200).json({
+            success: true,
+            totalPhotos: photos.length,
+            totalImages: images.length,
+            data: images,
+        });
+    } catch (error) {
+        console.error("Gallery Images Error:", error);
+        res.status(500).json({
+            success: false,
+            message: "Server error",
+        });
+    }
+};
+
+
 // Get Single Photo
 export const getSinglePhoto = async (req, res) => {
     try {
