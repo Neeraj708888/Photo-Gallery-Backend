@@ -32,9 +32,7 @@ export const createGallery = async (req, res) => {
         // Multiple Images Support
         const images = [];
         for (const file of req.files) {
-            const result = await cloudinary.uploader.upload(file.path, {
-                folder: "collections",
-            });
+            const result = await cloudinary.uploader.upload(file.path);
             images.push({
                 url: result.secure_url,
                 public_id: result.public_id,
@@ -55,7 +53,7 @@ export const createGallery = async (req, res) => {
         // ✅ Populate 
         const populatedGallery = await GalleryModel.findById(gallery._id)
             .populate("collection", "_id collectionName")
-            .select("_id gelleryName images status createdAt")
+            .select("_id galleryName images status createdAt")
             .lean();
 
         res.status(201).json({
@@ -341,7 +339,7 @@ export const getAllGallery = async (req, res) => {
                 _id: 1,
                 galleryName: 1,
                 status: 1,
-                thumbnail: 1,
+                images: 1,
                 createdAt: 1,
                 "collection._id": 1,
                 "collection.collectionName": 1,
