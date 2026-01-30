@@ -1,33 +1,70 @@
 
+import { slug } from "../../helpers/slug.js";
 import cloudinary from "../../middlewares/cloudinary.js";
 import CollectionModel from "../../models/Collection.model.js";
+import GalleryModel from "../../models/Gallery.model.js";
 
 
 // Create Collection
+
 export const createCollection = async (req, res) => {
   try {
-    console.log("Body: ", req.body);
-    console.log("File: ", req.file);
+    const collectionName = req.body?.collectionName?.trim();
 
-    const { collectionName } = req.body;
+    // 🔴 Validation
+    if (!collectionName) {
+      return res.status(400).json({
+        success: false,
+        message: "collectionName is required",
+      });
+    }
 
-    if (!req.file) return res.status(400).json({ message: "Thumbnail is required" });
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        message: "Thumbnail image is required",
+      });
+    }
 
-    const collection = await CollectionModel.create({
-      collectionName,
-      thumbnail: {
-        url: req.file.path,
-        public_id: req.file.filename,
+    // 🔴 Prevent duplicate collection
+    const existingCollection = await CollectionModel.findOne({
+      collectionName: {
+        $regex: `^${collectionName}$`,
+        $options: "i", // case-insensitive
       },
     });
 
-    res.status(201).json(collection);
+    if (existingCollection) {
+      return res.status(409).json({
+        success: false,
+        message: "Collection already exists",
+      });
+    }
+
+    // ✅ Create collection
+    const collection = await CollectionModel.create({
+      collectionName,
+      thumbnail: {
+        url: req.file.path,           // cloudinary secure_url
+        public_id: req.file.filename, // cloudinary public_id
+      },
+    });
+
+    return res.status(201).json({
+      success: true,
+      message: "Collection created successfully",
+      data: collection,
+    });
 
   } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-}
+    console.error("CREATE COLLECTION ERROR:", error);
 
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error",
+    });
+  }
+};
 
 // Update Collection
 export const updateCollection = async (req, res) => {
@@ -63,34 +100,56 @@ export const updateCollection = async (req, res) => {
 export const deleteCollection = async (req, res) => {
   try {
     const { id } = req.params;
+
+    // Find Collection
     const collection = await CollectionModel.findById(id);
+    if (!collection) return res.status(404).json({
+      success: false,
+      message: "Collection not found"
+    });
 
-    if (!collection) return res.status(404).json({ message: "Collection not found" });
+    // Store Collection Slug name
+    const collectionSlug = slug(collection.collectionName);
 
-    // Delete image from cloudinary - if exists
-    if (collection.thumbnail?.public_id) {
-      const cloudResponse = await cloudinary.uploader.destroy(collection.thumbnail?.public_id);
+    // Delete Gallery Images
+    const galleries = await GalleryModel.find({ collection: id });
 
-      if (cloudResponse.result !== "ok") {
-        console.warn("Cloudinary deleted failed",
-          cloudResponse
-        );
+    for (const gallery of galleries) {
+      for (const image of gallery.images) {
+        await cloudinary.uploader.destroy(image.public_id);
       }
     }
 
-    // Delete Image from Cloudinary first
-    // await cloudinary.uploader.destroy(collection.thumbnail.public_id);
+    // Delete Gallery Name and doucments
+    await GalleryModel.deleteMany({ collection: id });
 
-    // Delete DB record
-    // await collection.deleteOne();
+    // Delete Collection Thumbnail
+    if (collection.thumbnail?.public_id) await cloudinary.uploader.destroy(collection.thumbnail.public_id);
+
+    // Delete Entire folder recursively
+    const folderPath = `Photo Gallery/collections/${collectionSlug}`;
+
+    await cloudinary.api.delete_resources_by_prefix(folderPath);
+
+    await cloudinary.api.delete_folder(folderPath);
+
+    // Delete Collection Documents
     await CollectionModel.findByIdAndDelete(id);
 
-    res.json({ message: "Collection deleted successfully", id });
+    return res.status(200).json({
+      success: true,
+      message: "Collection deleted permanently successfully"
+    });
 
   } catch (error) {
-    res.status(500).json({ message: "Something went wrong" || error.message });
+    console.log("DELETE COLLECTION ERROR:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Internal server error"
+    });
   }
-};
+}
 
 // Get All Collection
 export const getAllCollection = async (req, res) => {
@@ -124,35 +183,6 @@ export const getCollectionById = async (req, res) => {
 };
 
 // Toggle Status
-// export const toggleCollectionStatus = async (req, res) => {
-
-//   try {
-//     console.log("STATUS TOGGLE API HIT", req.params.id);
-
-//     const { id } = req.params;
-
-//     const collection = await CollectionModel.findById(id);
-
-//     if (!collection) return res.status(404).json({ message: "Collection not found" });
-
-//     // Toggle Status
-//     console.log("OLD STATUS:", collection.status);
-
-//     collection.status = !collection.status;
-//     await collection.save();
-//     console.log("OLD STATUS:", collection.status);
-
-//     res.status(200).json({
-//       success: true,
-//       message: "Status updated successfully",
-//       status: collection.status,
-//     });
-
-//   } catch (error) {
-//     res.status(500).json({ message: "Something went wrong" || error.message });
-//   }
-// };
-
 export const toggleCollectionStatus = async (req, res) => {
   try {
     const { id } = req.params;
@@ -215,3 +245,37 @@ export const searchCollection = async (req, res) => {
     res.status(500).json({ message: "Something went wrong" || error.message });
   }
 };
+
+
+
+
+
+// Toggle Status
+// export const toggleCollectionStatus = async (req, res) => {
+
+//   try {
+//     console.log("STATUS TOGGLE API HIT", req.params.id);
+
+//     const { id } = req.params;
+
+//     const collection = await CollectionModel.findById(id);
+
+//     if (!collection) return res.status(404).json({ message: "Collection not found" });
+
+//     // Toggle Status
+//     console.log("OLD STATUS:", collection.status);
+
+//     collection.status = !collection.status;
+//     await collection.save();
+//     console.log("OLD STATUS:", collection.status);
+
+//     res.status(200).json({
+//       success: true,
+//       message: "Status updated successfully",
+//       status: collection.status,
+//     });
+
+//   } catch (error) {
+//     res.status(500).json({ message: "Something went wrong" || error.message });
+//   }
+// };

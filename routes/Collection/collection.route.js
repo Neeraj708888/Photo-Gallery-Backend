@@ -3,6 +3,7 @@ import { upload } from "../../middlewares/cloudinary.js";
 import { createCollection, deleteCollection, getAllCollection, getCollectionById, searchCollection, toggleCollectionStatus, updateCollection } from "../../controllers/Collection/collection.controller.js";
 import { verifyToken } from "../../middlewares/auth.middlewares.js";
 
+
 const router = express.Router();
 
 // collections-route

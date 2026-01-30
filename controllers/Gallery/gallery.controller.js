@@ -1,114 +1,64 @@
-import mongoose, { version } from "mongoose";
+import mongoose from "mongoose";
 import GalleryModel from "../../models/Gallery.model.js";
 import cloudinary from "../../middlewares/cloudinary.js";
+import { slug } from "../../helpers/slug.js";
 
 //Create Gallery
 export const createGallery = async (req, res) => {
     try {
-
         const { galleryName, collection } = req.body;
 
-        // ✅ Required check
+        console.log("BODY:", req.body);
+        console.log("FILES:", req.files);
+
         if (!galleryName || !collection) {
             return res.status(400).json({
                 success: false,
-                message: "Gallery name and Collection are required",
+                message: "galleryName and collection are required",
             });
         }
 
-        if (!req.files || req.files.length === 0) return res.status(400).json({
-            success: false,
-            message: "At least on image is required"
-        });
-
-        // ✅ ObjectId validation
-        if (!mongoose.Types.ObjectId.isValid(collection)) {
+        if (!req.files || req.files.length === 0) {
             return res.status(400).json({
                 success: false,
-                message: "Invalid Collection Id",
+                message: "At least one image required",
             });
         }
 
-        // Multiple Images Support
-        const images = [];
-        for (const file of req.files) {
-            const result = await cloudinary.uploader.upload(file.path);
-            images.push({
-                url: result.secure_url,
-                public_id: result.public_id,
-            })
-        }
-        // const images = req.files?.map(file => ({
-        //     url: file.path,
-        //     public_id: file.filename,
-        // }));
+        const images = req.files.map(file => ({
+            url: file.path,
+            public_id: file.filename,
+        }));
 
-        // ✅ Create gallery
         const gallery = await GalleryModel.create({
             galleryName,
-            images,
             collection,
+            images,
         });
-
-        // ✅ Populate 
-        const populatedGallery = await GalleryModel.findById(gallery._id)
-            .populate("collection", "_id collectionName")
-            .select("_id galleryName images status createdAt")
-            .lean();
 
         res.status(201).json({
             success: true,
             message: "Gallery created successfully",
-            data: populatedGallery,
+            data: gallery,
         });
 
     } catch (error) {
         console.error("CREATE GALLERY ERROR:", error);
+
         res.status(500).json({
             success: false,
-            message: error.message || "Something went wrong",
+            message: error.message,
         });
     }
 };
 
-// Update Gallery
-// export const updateGallery = async (req, res) => {
-//     try {
-
-//         const { id } = req.params;
-
-//         const gallery = await GalleryModel.findById(id);
-//         if (!gallery) return res.status(404).json({ message: "Galley not found" });
-
-//         if (req.body.galleryName) gallery.galleryName = req.body.galleryName;
-//         if (req.body.collection) gallery.collection = req.body.collection;
-
-//         if (req.file) {
-//             gallery.thumbnail = {
-//                 url: req.file.path,
-//                 public_id: req.file.filename,
-//             }
-//         }
-
-//         await gallery.save();
-//         res.status(200).json({ success: true, data: gallery });
-
-//     } catch (error) {
-//         res.status(500).json({ message: "Something went wrong" || error.message });
-//     }
-// }
-
 // Update Gallery Using Aggregate Pipeline
 export const updateGallery = async (req, res) => {
     try {
-        alo:
-
-        console.log("BODY:", req.body);
-        console.log("FILE:", req.file);
         const { id } = req.params;
-        const { galleryName, collection } = req.body || {};
+        const { galleryName, collection, removedImages } = req.body;
 
-        // 🔴 Validate gallery id
+        // ✅ Validate Gallery ID
         if (!mongoose.Types.ObjectId.isValid(id)) {
             return res.status(400).json({
                 success: false,
@@ -116,7 +66,7 @@ export const updateGallery = async (req, res) => {
             });
         }
 
-        // 🔴 Validate collection id (if provided)
+        // ✅ Validate Collection ID
         if (collection && !mongoose.Types.ObjectId.isValid(collection)) {
             return res.status(400).json({
                 success: false,
@@ -124,70 +74,62 @@ export const updateGallery = async (req, res) => {
             });
         }
 
-        // 🔄 Build update object dynamically
-        const updateData = {};
-        if (galleryName) updateData.galleryName = galleryName;
-        if (collection) updateData.collection = collection;
-        // if (status !== undefined) updateData.status = status === "true" || status === true;
-
-        if (req.file) {
-            updateData.thumbnail = {
-                url: req.file.path,
-                public_id: req.file.filename,
-            };
-        }
-
-        // 🔴 Nothing to update
-        if (Object.keys(updateData).length === 0) {
-            return res.status(400).json({
-                success: false,
-                message: "No fields provided to update",
-            });
-        }
-
-        // ✅ Update Gallery
-        const updatedGallery = await GalleryModel.findByIdAndUpdate(
-            id,
-            updateData,
-            { new: true }
-        );
-
-        if (!updatedGallery) {
+        // 🔍 Find existing gallery
+        const gallery = await GalleryModel.findById(id);
+        if (!gallery) {
             return res.status(404).json({
                 success: false,
                 message: "Gallery not found",
             });
         }
 
-        // 🔥 Fetch updated gallery with lookup + project
-        const result = await GalleryModel.aggregate([
-            { $match: { _id: updatedGallery._id } },
-            {
-                $lookup: {
-                    from: "collections",
-                    localField: "collection",
-                    foreignField: "_id",
-                    as: "collection",
-                },
-            },
-            { $unwind: "$collection" },
-            {
-                $project: {
-                    _id: 1,
-                    galleryName: 1,
-                    status: 1,
-                    thumbnail: 1,
-                    updatedAt: 1,
-                    "collection._id": 1,
-                    "collection.collectionName": 1,
-                },
-            },
-        ]);
+        // 🔹 Clone images
+        let images = [...gallery.images];
+
+        /* ---------------- REMOVE IMAGES ---------------- */
+        if (removedImages) {
+            const removedIds = JSON.parse(removedImages); // array of public_id
+
+            for (const img of images) {
+                if (removedIds.includes(img.public_id)) {
+                    // 🔥 delete from cloudinary
+                    await cloudinary.uploader.destroy(img.public_id);
+                }
+            }
+
+            // 🧹 remove from DB array
+            images = images.filter(
+                (img) => !removedIds.includes(img.public_id)
+            );
+        }
+
+        /* ---------------- ADD NEW IMAGES ---------------- */
+        if (req.files && req.files.length > 0) {
+            const newImages = req.files.map((file) => ({
+                url: file.path,        // ✅ already uploaded
+                public_id: file.filename,
+            }));
+
+            images.push(...newImages);
+        }
+
+        /* ---------------- UPDATE FIELDS ---------------- */
+        if (galleryName) gallery.galleryName = galleryName;
+        if (collection) gallery.collection = collection;
+        gallery.images = images;
+
+        await gallery.save();
+
+        /* ---------------- POPULATED RESPONSE ---------------- */
+        const populatedGallery = await GalleryModel.findById(id)
+            .populate("collection", "_id collectionName")
+            .select("_id galleryName images status createdAt updatedAt")
+            .lean();
 
         res.status(200).json({
             success: true,
             message: "Gallery updated successfully",
-            data: result[0],
+            data: populatedGallery,
         });
 
     } catch (error) {
@@ -205,43 +147,41 @@ export const deleteGallery = async (req, res) => {
 
         const { id } = req.params;
 
-        // Validate Gallery Id
-        if (!mongoose.Types.ObjectId.isValid(id)) return res.status(400).json({
-            success: false,
-            message: "Invalid Gallery Id",
-        });
-
-        // Find Gallery First (thumbnail cleanup)
-        const gallery = await GalleryModel.findById(id);
+        // Find Gallery
+        const gallery = await GalleryModel.findById(id).populate("collection", "collectionName");
 
         if (!gallery) return res.status(404).json({
             success: false,
-            message: "Gallery not found"
+            message: "Gallery not found",
         });
 
-        // Delete Thumbnail from Cloudinary
-        if (gallery.thumbnail?.public_id) {
-            const cloudResponse = await cloudinary.uploader.destroy(gallery.thumbnail.public_id);
+        const collectionSlug = slug(gallery.collection.collectionName);
+        const gallerySlug = slug(gallery.galleryName);
 
-            if (cloudResponse.result !== "ok") {
-                console.warn("Cloudinary deleted failed", cloudResponse);
-            }
+        // Delet Gallery Images from Cloudinary
+        for (const image of gallery.images) {
+            await cloudinary.uploader.destroy(image.public_id);
         }
 
-        // Delete Gallery
+        // Delete Gallery Folder
+        const galleryFolder = `Photo Gallery/collections/${collectionSlug}/${gallerySlug}`;
+
+        await cloudinary.api.delete_resources_by_prefix(galleryFolder);
+        await cloudinary.api.delete_folder(galleryFolder);
+
+        // DB Delete Folder
         await GalleryModel.findByIdAndDelete(id);
 
-        res.status(200).json({
+        return res.status(200).json({
             success: true,
-            message: "Gallery deleted",
-            id
+            message: "Gallery deleted permanently successfully"
         });
 
     } catch (error) {
         console.log("Delete Gallery Error:", error);
         res.status(500).json({
             success: false,
-            message: "Something went wrong" || error.message
+            message: error.message || "Something went wrong"
         });
     }
 };
@@ -291,7 +231,7 @@ export const toggleGalleryStatus = async (req, res) => {
 // Get Gallery + Search
 export const getAllGallery = async (req, res) => {
     try {
-        const { collection, status, search } = req.query;
+        const { status, search } = req.query;
 
         const pipeline = [];
 
@@ -301,15 +241,6 @@ export const getAllGallery = async (req, res) => {
                 $match: { status: status === "true" },
             });
         }
-
-        // 🔍 Filter by collection
-        // if (collection && mongoose.Types.ObjectId.isValid(collection)) {
-        //     pipeline.push({
-        //         $match: {
-        //             collection: new mongoose.Types.ObjectId(collection),
-        //         },
-        //     });
-        // }
 
         // 🔍 Search by galleryName
         if (search) {
@@ -392,6 +323,79 @@ export const getSingleGallery = async (req, res) => {
     }
 };
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+// Update Gallery
+// export const updateGallery = async (req, res) => {
+//     try {
+
+//         const { id } = req.params;
+
+//         const gallery = await GalleryModel.findById(id);
+//         if (!gallery) return res.status(404).json({ message: "Galley not found" });
+
+//         if (req.body.galleryName) gallery.galleryName = req.body.galleryName;
+//         if (req.body.collection) gallery.collection = req.body.collection;
+
+//         if (req.file) {
+//             gallery.thumbnail = {
+//                 url: req.file.path,
+//                 public_id: req.file.filename,
+//             }
+//         }
+
+//         await gallery.save();
+//         res.status(200).json({ success: true, data: gallery });
+
+//     } catch (error) {
+//         res.status(500).json({ message: "Something went wrong" || error.message });
+//     }
+// }
 // Get Single Gallery by Using lookup + projects
 // export const getSingleGallery = async (req, res) => {
 //     try {
